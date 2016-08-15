@@ -33,7 +33,7 @@ class Vocabulary(domain_object.DomainObject):
         query = query.filter(Vocabulary.id == id_or_name)
         vocab = query.first()
         if vocab is None:
-            vocab = Vocabulary.by_name(id_or_name)
+            vocab = Vocabulary.by_name(id_or_name) # 这个方法是在父类中定义的
         return vocab
 
     @property

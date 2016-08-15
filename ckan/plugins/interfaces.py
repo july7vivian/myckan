@@ -1333,7 +1333,7 @@ class IGroupForm(Interface):
         """
 
     ##### End of hooks                                                   #####
-
+# 用来自定义显示在页面上的facets?
 class IFacets(Interface):
     '''Customize the search facets shown on search pages.
 
@@ -1354,7 +1354,7 @@ class IFacets(Interface):
 
     To preserve ordering, make sure to add new facets to the existing dict
     rather than updating it, ie do this::
-
+    # 据说这样能保证有序性？？这个有序是不是时间上的有序？
         facets_dict['groups'] = p.toolkit._('Publisher')
         facets_dict['secondary_publisher'] = p.toolkit._('Secondary Publisher')
 
@@ -1375,7 +1375,7 @@ class IFacets(Interface):
     they will each be able to modify the facets dict in turn.
 
     '''
-    def dataset_facets(self, facets_dict, package_type):
+    def dataset_facets(self, facets_dict, package_type): # modify facets_dict
         '''Modify and return the ``facets_dict`` for the dataset search page.
 
         The ``package_type`` is the type of package that these facets apply to.

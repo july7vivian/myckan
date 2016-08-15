@@ -27,7 +27,7 @@ _default_group_plugin = None
 # Mapping from group-type strings to controllers
 _group_controllers = {}
 
-
+# 这样这些global变量就可以在函数外部实现赋值(在该module外也可以赋值)
 def reset_package_plugins():
     global _default_package_plugin
     _default_package_plugin = None
@@ -73,7 +73,7 @@ def lookup_group_controller(group_type=None):
     """
     return _group_controllers.get(group_type)
 
-
+# 这个函数搜集了每个类型的的package对应的plugin
 def register_package_plugins(map):
     """
     Register the various IDatasetForm instances.
@@ -92,7 +92,8 @@ def register_package_plugins(map):
 
     # Create the mappings and register the fallback behaviour if one is found.
     for plugin in plugins.PluginImplementations(plugins.IDatasetForm):
-        if plugin.is_fallback():
+        if plugin.is_fallback(): # Return True to register this plugin as the default handler for
+                                 # package types not handled by any other IDatasetForm plugin.
             if _default_package_plugin is not None:
                 raise ValueError("More than one fallback "
                                  "IDatasetForm has been registered")

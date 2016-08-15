@@ -3,11 +3,11 @@
 import vdm.sqlalchemy
 from sqlalchemy import orm, types, Column, Table, ForeignKey
 
-import meta
+import meta # model.meta
 import core
 import package as _package
 import types as _types
-import domain_object
+import domain_object   # model.domian_object
 
 # i18n only works when this is run as part of pylons,
 # which isn't the case for paster commands.
@@ -69,7 +69,7 @@ class PackageRelationship(vdm.sqlalchemy.RevisionedObjectMixin,
 
     def as_dict(self, package=None, ref_package_by='id'):
         """Returns full relationship info as a dict from the point of view
-        of the given package if specified.
+        of the given package if specified. # 以给定的package的角度来描述相应关系
         e.g. {'subject':u'annakarenina',
               'type':u'depends_on',
               'object':u'warandpeace',
@@ -81,7 +81,7 @@ class PackageRelationship(vdm.sqlalchemy.RevisionedObjectMixin,
             subject_pkg = self.object
             object_pkg = self.subject
             relationship_type = self.forward_to_reverse_type(self.type)
-        subject_ref = getattr(subject_pkg, ref_package_by)
+        subject_ref = getattr(subject_pkg, ref_package_by) # ref_package_by 可以是id或者name，用来标注这一个package
         object_ref = getattr(object_pkg, ref_package_by)
         return {'subject':subject_ref,
                 'type':relationship_type,

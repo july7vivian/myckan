@@ -97,10 +97,10 @@ def ignore_missing(key, data, errors, context):
 
     '''
     value = data.get(key)
-
+    # 这个missing不是很懂
     if value is missing or value is None:
         data.pop(key, None)
-        raise StopOnError
+        raise StopOnError  # 不再继续validate
 
 def ignore_empty(key, data, errors, context):
 

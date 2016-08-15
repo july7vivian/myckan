@@ -208,9 +208,9 @@ def url_for(*args, **kw):
         # fix ver to include the slash
         kw['ver'] = '/%s' % ver
     if kw.get('qualified', False):
-        kw['protocol'], kw['host'] = get_site_protocol_and_host()
-    my_url = _routes_default_url_for(*args, **kw)
-    kw['__ckan_no_root'] = no_root
+        kw['protocol'], kw['host'] = get_site_protocol_and_host() # 这个host是访问网站的host（从config文件中取得）
+    my_url = _routes_default_url_for(*args, **kw) # 这个是routes模块里面自带的url_for
+    kw['__ckan_no_root'] = no_root # 再把这个加进去，实际就pop出来了一个locale
     return _local_url(my_url, locale=locale, **kw)
 
 
@@ -272,7 +272,7 @@ def is_url(*args, **kw):
 
     return url.scheme in (valid_schemes or default_valid_schemes)
 
-
+#url_to_amend 是根据routes模块里生成的url
 def _local_url(url_to_amend, **kw):
     # If the locale keyword param is provided then the url is rewritten
     # using that locale .If return_to is provided this is used as the url
@@ -282,7 +282,7 @@ def _local_url(url_to_amend, **kw):
     default_locale = False
     locale = kw.pop('locale', None)
     no_root = kw.pop('__ckan_no_root', False)
-    allowed_locales = ['default'] + i18n.get_locales()
+    allowed_locales = ['default'] + i18n.get_locales() # i18n.get_locales()返回值应该是一个list（ordered_list）
     if locale and locale not in allowed_locales:
         locale = None
     if locale:
@@ -290,19 +290,19 @@ def _local_url(url_to_amend, **kw):
             default_locale = True
     else:
         try:
-            locale = request.environ.get('CKAN_LANG')
-            default_locale = request.environ.get('CKAN_LANG_IS_DEFAULT', True)
+            locale = request.environ.get('CKAN_LANG') # from ckan.common import request，而这个request最终来自于pylons
+            default_locale = request.environ.get('CKAN_LANG_IS_DEFAULT', True) # 这个environ大概也是个字典吧，装了一些request的重要属性
         except TypeError:
             default_locale = True
 
     root = ''
     if kw.get('qualified', False):
-        # if qualified is given we want the full url ie http://...
+        # if qualified is given we want the full url ie http://...   而不是类似于 /package/mydataset
         protocol, host = get_site_protocol_and_host()
         root = _routes_default_url_for('/',
                                        qualified=True,
                                        host=host,
-                                       protocol=protocol)[:-1]
+                                       protocol=protocol)[:-1]  # root的意思好像是url的根目录吧，就是http://www.example.com
     # ckan.root_path is defined when we have none standard language
     # position in the url
     root_path = config.get('ckan.root_path', None)
@@ -311,8 +311,15 @@ def _local_url(url_to_amend, **kw):
         # into the ecportal core is done - Toby
         # we have a special root specified so use that
         if default_locale:
-            root_path = re.sub('/{{LANG}}', '', root_path)
+            root_path = re.sub('/{{LANG}}', '', root_path) # 中间的括号显紫色好像是python会自动把最中间的括号变色，与转义或者是否为变量无关。
+                                                           # 但是，我找到这么一个例子 
+                                                           # input: ld = '/{{luodan}}, hi'.format(luodan='abc')
+                                                           # output: {luodan}, hi
+                                                           # input: ld = '/{luodan}, hi'.format(luodan='abc')
+                                                           # output: /abc, hi
+                                                           # 所以，应该是个变量，这是大括号少了一组
         else:
+            # re.sub(pattern, repl, string[,count]) 用repl去替换，所以把root_path中的{{LANG}}替换为str(locale)
             root_path = re.sub('{{LANG}}', str(locale), root_path)
         # make sure we don't have a trailing / on the root
         if root_path[-1] == '/':
@@ -326,13 +333,13 @@ def _local_url(url_to_amend, **kw):
     url_path = url_to_amend[len(root):]
     url = '%s%s%s' % (root, root_path, url_path)
 
-    # stop the root being added twice in redirects
+    # stop the root being added twice in redirects  去掉root, 在重定向的时候
     if no_root and url_to_amend.startswith(root):
         url = url_to_amend[len(root):]
         if not default_locale:
             url = '/%s%s' % (locale, url)
 
-    if url == '/packages':
+    if url == '/packages': # 不知道为什么
         error = 'There is a broken url being created %s' % kw
         raise ckan.exceptions.CkanUrlException(error)
 
@@ -822,6 +829,7 @@ def _url_with_params(url, params):
     params = [(k, v.encode('utf-8') if isinstance(v, basestring) else str(v))
               for k, v in params]
     return url + u'?' + urlencode(params)
+# from urllib import urlencode 大概是urllib中内置的把元组的list转换成？后的参数的函数
 
 
 def _search_url(params):
@@ -1096,6 +1104,7 @@ def get_page_number(params, key='page', default=1):
 
     If it fails it will abort the request with a 400 error.
     '''
+    # 在参数里面获取'page'参数的值
     p = params.get(key, default)
 
     try:
@@ -1518,7 +1527,7 @@ def add_url_param(alternative_url=None, controller=None, action=None,
     params_nopage = [(k, v) for k, v in request.params.items() if k != 'page']
     params = set(params_nopage)
     if new_params:
-        params |= set(new_params.items())
+        params |= set(new_params.items()) # |应该是对于set的合并操作
     if alternative_url:
         return _url_with_params(alternative_url, params)
     return _create_url_with_params(params=params, controller=controller,
@@ -1539,7 +1548,7 @@ def remove_url_param(key, value=None, replace=None, controller=None,
 
     controller action & extras (dict) are used to create the base url
     via :py:func:`~ckan.lib.helpers.url_for`
-    controller & action default to the current ones
+    controller & action default to the current ones 通过c来获取default
 
     This can be overriden providing an alternative_url, which will be used
     instead.
@@ -1553,7 +1562,7 @@ def remove_url_param(key, value=None, replace=None, controller=None,
     params_nopage = [(k, v) for k, v in request.params.items() if k != 'page']
     params = list(params_nopage)
     if value:
-        params.remove((keys[0], value))
+        params.remove((keys[0], value)) # 如果value不匹配，则不删除
     else:
         for key in keys:
             [params.remove((k, v)) for (k, v) in params[:] if k == key]
@@ -1561,7 +1570,7 @@ def remove_url_param(key, value=None, replace=None, controller=None,
         params.append((keys[0], replace))
 
     if alternative_url:
-        return _url_with_params(alternative_url, params)
+        return _url_with_params(alternative_url, params) # 这个参数用于在url后面加参数，即？后面
 
     return _create_url_with_params(params=params, controller=controller,
                                    action=action, extras=extras)

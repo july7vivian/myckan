@@ -71,6 +71,7 @@ class ApiController(base.BaseController):
         environ['pylons.status_code_redirect'] = True
         return base.BaseController.__call__(self, environ, start_response)
 
+    # 主要是返回了一个response_msg, 如果包括request参数包括call_back的话，再把callback的值加到response_msg中
     def _finish(self, status_int, response_data=None,
                 content_type='text'):
         '''When a controller method has completed, call this method
@@ -96,9 +97,10 @@ class ApiController(base.BaseController):
                     request.method == 'GET'):
                 # escape callback to remove '<', '&', '>' chars
                 callback = cgi.escape(request.params['callback'])
-                response_msg = self._wrap_jsonp(callback, response_msg)
-        return response_msg
+                response_msg = self._wrap_jsonp(callback, response_msg) # callback是一个函数，用来实现jsonp，具体的原理还不懂
+        return response_msg # 返回值里不包括response.header
 
+    # status为ok的情况的返回，最终就是要调用_finish的
     def _finish_ok(self, response_data=None,
                    content_type='json',
                    resource_location=None):
@@ -139,6 +141,7 @@ class ApiController(base.BaseController):
     def _wrap_jsonp(self, callback, response_msg):
         return '%s(%s);' % (callback, response_msg)
 
+    # 在response的header里面加入键值对
     def _set_response_header(self, name, value):
         try:
             value = str(value)
@@ -148,16 +151,18 @@ class ApiController(base.BaseController):
             raise Exception(msg)
         response.headers[name] = value
 
+    # 在response_data里加入了一个版本号
     def get_api(self, ver=None):
         response_data = {}
         response_data['version'] = ver
         return self._finish_ok(response_data)
-
+     
+    # render a snippet(snippet 实际是一个template， 即html文件？)   
     def snippet(self, snippet_path, ver=None):
         ''' Renders and returns a snippet used by ajax calls '''
         # we only allow snippets in templates/ajax_snippets and it's subdirs
         snippet_path = u'ajax_snippets/' + snippet_path
-        return base.render(snippet_path, extra_vars=dict(request.params))
+        return base.render(snippet_path, extra_vars=dict(request.params)) # base.render没有看
 
     def action(self, logic_function, ver=None):
         try:
@@ -621,7 +626,7 @@ class ApiController(base.BaseController):
         context = {'model': model, 'session': model.Session,
                    'user': c.user, 'auth_user_obj': c.userobj}
 
-        tag_names = get_action('tag_list')(context, {})
+        tag_names = get_action('tag_list')(context, {}) # 这里的get_action('tag_list')相当于那个wrap后的函数
         results = []
         for tag_name in tag_names:
             tag_count = len(context['model'].Tag.get(tag_name).packages)
@@ -872,7 +877,7 @@ class ApiController(base.BaseController):
                 if keys and request.POST[keys[0]] in [u'1', u'']:
                     request_data = keys[0]
                 else:
-                    request_data = urllib.unquote_plus(request.body)
+                    request_data = urllib.unquote_plus(request.body) # 对body进行解码
             except Exception, inst:
                 msg = "Could not find the POST data: %r : %s" % \
                       (request.POST, inst)

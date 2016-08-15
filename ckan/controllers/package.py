@@ -46,6 +46,7 @@ lookup_package_plugin = ckan.lib.plugins.lookup_package_plugin
 
 
 def _encode_params(params):
+    # v.encode('utf-8') if isinstance(v, basestring) else str(v)这么看才对，if语句判断只针对v
     return [(k, v.encode('utf-8') if isinstance(v, basestring) else str(v))
             for k, v in params]
 
@@ -59,6 +60,7 @@ def search_url(params, package_type=None):
     if not package_type or package_type == 'dataset':
         url = h.url_for(controller='package', action='search')
     else:
+        # url_for可接收字符串的参数，好像可以直接作为url
         url = h.url_for('{0}_search'.format(package_type))
     return url_with_params(url, params)
 
@@ -133,27 +135,34 @@ class PackageController(base.BaseController):
 
     def search(self):
         from ckan.lib.search import SearchError, SearchQueryError
+        # class SearchError(Exception), SearchQueryError是SearchError的子类
+
 
         package_type = self._guess_package_type()
-
+        # log.info('--------add by dluo:context c.user %r' % c.user)
         try:
             context = {'model': model, 'user': c.user,
                        'auth_user_obj': c.userobj}
-            check_access('site_read', context)
+            check_access('site_read', context) # in this case, always return true
         except NotAuthorized:
             abort(403, _('Not authorized to see this page'))
 
         # unicode format (decoded from utf8)
-        q = c.q = request.params.get('q', u'')
+        q = c.q = request.params.get('q', u'') # query
+        log.info('--------add by dluo:context c.q %r' % c.q)
         c.query_error = False
+        # 获取page参数的值
         page = h.get_page_number(request.params)
-
+        log.info('--------add by dluo: page %r' % page)
         limit = g.datasets_per_page
 
         # most search operations should reset the page counter:
+        # 7.28.2016, 查阅了request的生成机制，主要是一个StackedObjectProxy的class，会根据
+        # 线程来获取相应的request，但具体代码还没有读懂。to do 
         params_nopage = [(k, v) for k, v in request.params.items()
                          if k != 'page']
 
+        # 这里面调用了url_for，用于增加参数，参数来自于request和by
         def drill_down_url(alternative_url=None, **by):
             return h.add_url_param(alternative_url=alternative_url,
                                    controller='package', action='search',
@@ -161,6 +170,7 @@ class PackageController(base.BaseController):
 
         c.drill_down_url = drill_down_url
 
+        # 删除参数，从request的params中删除
         def remove_field(key, value=None, replace=None):
             return h.remove_url_param(key, value=value, replace=replace,
                                       controller='package', action='search')
@@ -170,6 +180,8 @@ class PackageController(base.BaseController):
         sort_by = request.params.get('sort', None)
         params_nosort = [(k, v) for k, v in params_nopage if k != 'sort']
 
+
+        # 返回一个加入了sort参数的url
         def _sort_by(fields):
             """
             Sort by the given list of fields.
@@ -180,25 +192,33 @@ class PackageController(base.BaseController):
 
             If fields is empty, then the default ordering is used.
             """
+            # 如果是params = params_nosort， 则指向同一个实例
             params = params_nosort[:]
 
             if fields:
+                # 这里的'%s %s', 并不是把f打印了两遍，就是f相当于('name', 'asc')
+                # 那么第一个%s就是name，第二个%s就是asc了
+                # 把一个元组的list转化为了一个sort_string
                 sort_string = ', '.join('%s %s' % f for f in fields)
                 params.append(('sort', sort_string))
-            return search_url(params, package_type)
+            return search_url(params, package_type) # package_type = self._guess_package_type()
+                                                    # 在package_type == dataset的情况下，就是把参数
+                                                    # 加在了url的后面，url根据url_for生成
 
-        c.sort_by = _sort_by
-        if not sort_by:
+        c.sort_by = _sort_by 
+        if not sort_by: # sort_by = request.params.get('sort', None)
             c.sort_by_fields = []
         else:
             c.sort_by_fields = [field.split()[0]
-                                for field in sort_by.split(',')]
+                                for field in sort_by.split(',')] #只取field name？
 
         def pager_url(q=None, page=None):
             params = list(params_nopage)
-            params.append(('page', page))
-            return search_url(params, package_type)
-
+            params.append(('page', page)) # page = h.get_page_number(request.params)
+            return search_url(params, package_type) # package_type = self._guess_package_type()
+                                                    # 在package_type == dataset的情况下，就是把参数
+                                                    # 加在了url的后面，url根据url_for生成
+        # 把request的参数变成url？后面的参数                                            
         c.search_url_params = urlencode(_encode_params(params_nopage))
 
         try:
@@ -208,21 +228,22 @@ class PackageController(base.BaseController):
             c.fields_grouped = {}
             search_extras = {}
             fq = ''
+            # 为上述定义的变量赋值
             for (param, value) in request.params.items():
                 if param not in ['q', 'page', 'sort'] \
-                        and len(value) and not param.startswith('_'):
+                        and len(value) and not param.startswith('_'): # 仅处理非['q', 'page', 'sort']以及非'_'开头的
                     if not param.startswith('ext_'):
                         c.fields.append((param, value))
                         fq += ' %s:"%s"' % (param, value)
                         if param not in c.fields_grouped:
                             c.fields_grouped[param] = [value]
                         else:
-                            c.fields_grouped[param].append(value)
+                            c.fields_grouped[param].append(value) # 看来可以出现param名相同的情况
                     else:
                         search_extras[param] = value
 
             context = {'model': model, 'session': model.Session,
-                       'user': c.user, 'for_view': True,
+                       'user': c.user, 'for_view': True, # 这个for_view好像可以免除auth？
                        'auth_user_obj': c.userobj}
 
             if package_type and package_type != 'dataset':
@@ -235,7 +256,8 @@ class PackageController(base.BaseController):
                         config.get('ckan.search.show_all_types', 'False')):
                     fq += ' +dataset_type:dataset'
 
-            facets = OrderedDict()
+            # facets就是搜索时用的filter？
+            facets = OrderedDict() # make an instance
 
             default_facet_titles = {
                 'organization': _('Organizations'),
@@ -245,20 +267,21 @@ class PackageController(base.BaseController):
                 'license_id': _('Licenses'),
                 }
 
-            for facet in g.facets:
+            for facet in g.facets: # 这里的facet应该只是一个字符串
                 if facet in default_facet_titles:
-                    facets[facet] = default_facet_titles[facet]
+                    facets[facet] = default_facet_titles[facet] # default_facet_titles中存在就用它的值
                 else:
-                    facets[facet] = facet
+                    facets[facet] = facet # 不存在就直接用英文的字符串
 
             # Facet titles
+            # 自定义的plugin会根据不同的package_type来对facets来进行更改
             for plugin in p.PluginImplementations(p.IFacets):
                 facets = plugin.dataset_facets(facets, package_type)
 
-            c.facet_titles = facets
+            c.facet_titles = facets # 最后确定facets，type是OrderDict
 
             data_dict = {
-                'q': q,
+                'q': q, #q = c.q = request.params.get('q', u'')
                 'fq': fq.strip(),
                 'facet.field': facets.keys(),
                 'rows': limit,

@@ -37,6 +37,7 @@ class AuthFunctions:
             self._build()
         return self._functions.get(function)
 
+    # 搜集ckan内置的或者自定义的auth function， 存储到_function变量中
     def _build(self):
         ''' Gather the auth functions.
 
@@ -54,9 +55,10 @@ class AuthFunctions:
                 log.debug('No auth module for action "%s"' % auth_module_name)
                 continue
 
-            for part in module_path.split('.')[1:]:
-                module = getattr(module, part)
+            for part in module_path.split('.')[1:]: # [0]应该是__init__
+                module = getattr(module, part) # 依次递进，直到获取ckan.logic.auth.XXX
 
+            # 遍历找出所有auth action（非_开头的函数）
             for key, v in module.__dict__.items():
                 if not key.startswith('_'):
                     # Whitelist all auth functions defined in
@@ -64,12 +66,13 @@ class AuthFunctions:
                     # as well as ensuring that the rest do. In both cases, do
                     # nothing if a decorator has already been used to define
                     # the behaviour
+                    # 这里的auth_allow_anonymous_access不是装饰器，是一个属性值
                     if not hasattr(v, 'auth_allow_anonymous_access'):
                         if auth_module_name == 'get':
                             v.auth_allow_anonymous_access = True
                         else:
                             v.auth_allow_anonymous_access = False
-                    self._functions[key] = v
+                    self._functions[key] = v 
 
         # Then overwrite them with any specific ones in the plugins:
         resolved_auth_function_plugins = {}
@@ -88,7 +91,7 @@ class AuthFunctions:
         # Use the updated ones in preference to the originals.
         self._functions.update(fetched_auth_functions)
 
-_AuthFunctions = AuthFunctions()
+_AuthFunctions = AuthFunctions() # class AuthFunctions
 #remove the class
 del AuthFunctions
 
@@ -105,7 +108,7 @@ def auth_functions_list():
 
 
 def is_sysadmin(username):
-    ''' Returns True is username is a sysadmin '''
+    ''' Returns True if username is a sysadmin '''
     user = _get_user(username)
     return user and user.sysadmin
 
@@ -145,6 +148,7 @@ def is_authorized_boolean(action, context, data_dict=None):
 
 
 def is_authorized(action, context, data_dict=None):
+    log.info('--------add by dluo: this is is_authorized')
     if context.get('ignore_auth'):
         return {'success': True}
 

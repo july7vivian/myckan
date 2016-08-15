@@ -583,10 +583,14 @@ def default_autocomplete_schema():
     }
     return schema
 
-
+# 这个schema规定了package_search操作中data_dict字典中的每个key的value格式
+# 比如'rows': [ignore_missing, natural_number_validator]，就要求是一个自然数
+# ignore_missing表示，如果这个value确实，那么后面的validator都忽略，如果没有确实，那么后面的
+# 每个validator将会被apply
+# 这里的ignore_missing是一个类，用作validator
 def default_package_search_schema():
     schema = {
-        'q': [ignore_missing, unicode],
+        'q': [ignore_missing, unicode], # 这是一个list， 第一个值是ignore_missing，第二个值是一个type类型的数据<type 'unicode'>
         'fq': [ignore_missing, unicode],
         'rows': [ignore_missing, natural_number_validator],
         'sort': [ignore_missing, unicode],

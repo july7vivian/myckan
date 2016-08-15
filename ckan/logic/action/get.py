@@ -1694,7 +1694,7 @@ def package_search(context, data_dict):
     :param start: the offset in the complete result for where the set of
         returned datasets should begin.
     :type start: int
-    :param facet: whether to enable faceted results.  Default: ``True``.
+    :param facet: whether to enable faceted results.  Default: ``True``. 为什么这里的facet是在返回结果里的？
     :type facet: string
     :param facet.mincount: the minimum counts for facet fields should be
         included in the results.
@@ -1780,7 +1780,7 @@ def package_search(context, data_dict):
         dictionary objects.
     '''
     # sometimes context['schema'] is None
-    schema = (context.get('schema') or
+    schema = (context.get('schema') or 
               logic.schema.default_package_search_schema())
     data_dict, errors = _validate(data_dict, schema, context)
     # put the extras back into the data_dict so that the search can

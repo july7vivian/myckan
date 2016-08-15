@@ -61,6 +61,7 @@ def flattened_order_key(key):
 
     return tuple([len(key)] + list(key))
 
+# 不断一层一层剥开schema，看起来schema中只有嵌套的dict，没有list
 def flatten_schema(schema, flattened=None, key=None):
     '''convert schema into flat dict where the keys are tuples'''
 
@@ -81,12 +82,13 @@ def get_all_key_combinations(data, flattented_schema):
     match the schema ignoring the last value in the tuple.
 
     '''
+    # schema_prefixes 是一个set，每个set的成员是tuple，即key[:-1]
     schema_prefixes = set([key[:-1] for key in flattented_schema])
     combinations = set([()])
 
     for key in sorted(data.keys(), key=flattened_order_key):
         ## make sure the tuple key is a valid one in the schema
-        key_prefix = key[:-1:2]
+        key_prefix = key[:-1:2] #之所以要每两个数取一个是因为偶数位的数值代表的是list的位置，不是键值，运行ckan_flatten_test.py可以发现
         if key_prefix not in schema_prefixes:
             continue
         ## make sure the parent key exists, this is assured by sorting the keys
@@ -133,7 +135,7 @@ def augment_data(data, schema):
         if key in full_schema:
             continue
 
-        ## check if any thing naugthy is placed against subschemas
+        ## check if any thing naughty is placed against subschemas
         initial_tuple = key[::2]
         if initial_tuple in [initial_key[:len(initial_tuple)]
                              for initial_key in flattented_schema]:
@@ -222,6 +224,8 @@ def _remove_blank_keys(schema):
 
     return schema
 
+# data_dict, errors = _validate(data_dict, schema, context)
+# 这里的data是查询操作的data_dict
 def validate(data, schema, context=None):
     '''Validate an unflattened nested dict against a schema.'''
     context = context or {}
@@ -231,6 +235,7 @@ def validate(data, schema, context=None):
     # store any empty lists in the data as they will get stripped out by
     # the _validate function. We do this so we can differentiate between
     # empty fields and missing fields when doing partial updates.
+    # 把所有value为empty的都记录下来
     empty_lists = [key for key, value in data.items() if value == []]
 
     # create a copy of the context which also includes the schema keys so
@@ -277,7 +282,7 @@ def validate_flattened(data, schema, context=None):
 
     return converted_data, errors
 
-
+# converted_data, errors = _validate(flattened, schema, validators_context)
 def _validate(data, schema, context):
     '''validate a flattened dict against a schema'''
     converted_data = augment_data(data, schema)
@@ -340,12 +345,15 @@ def flatten_list(data, flattened=None, old_key=None):
 
     for num, value in enumerate(data):
         if not isinstance(value, dict):
-            raise DataError('Values in lists need to be dicts')
+            raise DataError('Values in lists need to be dicts') # list当中只能为dict
         new_key = old_key + [num]
         flattened = flatten_dict(value, flattened, new_key)
 
     return flattened
 
+# flatten_dict和flatten_list 相互调用就像一层一层剥开你的心
+
+# 我觉得这个old_key 应该不是自己定义的，而是在flatten的过程当中，携带的外层的key
 def flatten_dict(data, flattened=None, old_key=None):
     '''flatten a dict'''
 
@@ -353,9 +361,9 @@ def flatten_dict(data, flattened=None, old_key=None):
     old_key = old_key or []
 
     for key, value in data.iteritems():
-        new_key = old_key + [key]
+        new_key = old_key + [key] # 合并list 所有old_key要么为None或者list
         if isinstance(value, list) and value and isinstance(value[0], dict):
-            flattened = flatten_list(value, flattened, new_key)
+            flattened = flatten_list(value, flattened, new_key) # 比如在这里，外层的key值就成了里层的old_key
         else:
             flattened[tuple(new_key)] = value
 

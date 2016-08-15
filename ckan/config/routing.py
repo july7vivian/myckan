@@ -87,7 +87,8 @@ def make_map():
 
     import ckan.lib.plugins as lib_plugins
     lib_plugins.reset_package_plugins()
-
+    # 构造一个mapper对象
+    # 更多细节：http://routes.readthedocs.io/en/latest/modules/mapper.htmlhttp://routes.readthedocs.io/en/latest/modules/mapper.html
     map = Mapper(directory=config['pylons.paths']['controllers'],
                  always_scan=config['debug'])
     map.minimization = False

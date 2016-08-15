@@ -127,10 +127,13 @@ def render(template_name, extra_vars=None, cache_key=None, cache_type=None,
         del globs['config']
         return render_jinja2(template_name, globs)
 
+    # 上面定义了一个内函数，实际作为了cached_template(template_name, render_template)的参数，也就是说，在这个代码
+    # 里面，都是按照render_jinja()的方法render的。
+
     if 'Pragma' in response.headers:
         del response.headers["Pragma"]
 
-    ## Caching Logic
+    #  Caching Logic
     allow_cache = True
     # Force cache or not if explicit.
     if cache_force is not None:

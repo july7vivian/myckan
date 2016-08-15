@@ -24,7 +24,6 @@ try:
 except ImportError:
     from sqlalchemy.util import OrderedDict
 
-
 class CKANConfig(MutableMapping):
     u'''Main CKAN configuration object
 

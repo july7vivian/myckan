@@ -212,10 +212,11 @@ def flatten_to_string_key(dict):
     flattented = df.flatten_dict(dict)
     return untuplize_dict(flattented)
 
-
+# 预填充
 def _prepopulate_context(context):
     if context is None:
         context = {}
+    # setdefault是字典类自带的方法，非自定义
     context.setdefault('model', model)
     context.setdefault('session', model.Session)
     try:
@@ -225,7 +226,7 @@ def _prepopulate_context(context):
         pass
     return context
 
-
+# 检查是否有调用函数action的权限
 def check_access(action, context, data_dict=None):
     '''Calls the authorization function for the provided action
 
@@ -265,8 +266,10 @@ def check_access(action, context, data_dict=None):
 
     # Auth Auditing.  We remove this call from the __auth_audit stack to show
     # we have called the auth function
+    # 弹出该标记，以表示已经调用过auth function(授权函数)
     try:
         audit = context.get('__auth_audit', [])[-1]
+        # log.info('--------add by dluo: __auth_audit %r', audit)
     except IndexError:
         audit = ''
     if audit and audit[0] == action:
@@ -278,6 +281,7 @@ def check_access(action, context, data_dict=None):
         if 'auth_user_obj' not in context:
             context['auth_user_obj'] = None
 
+        # 检查auth_user_obj， 如果为None，需要再赋值model.User.by_name(context['user'])
         if not context.get('ignore_auth'):
             if not context.get('__auth_user_obj_checked'):
                 if context.get('user') and not context.get('auth_user_obj'):
@@ -358,6 +362,8 @@ def get_action(action):
 
     '''
 
+    log.info('--------add by dluo: get_action is invoked action name: %s' %action)
+
     if _actions:
         if action not in _actions:
             raise KeyError("Action '%s' not found" % action)
@@ -371,22 +377,24 @@ def get_action(action):
         module_path = 'ckan.logic.action.' + action_module_name
         module = __import__(module_path)
         for part in module_path.split('.')[1:]:
-            module = getattr(module, part)
+            module = getattr(module, part) # 不断在path上前进，知道取到最底层的action函数本身
         for k, v in module.__dict__.items():
             if not k.startswith('_'):
                 # Only load functions from the action module or already
-                # replaced functions.
-                if (hasattr(v, '__call__') and
+                # replaced functions. # 只加载该模块的函数，（不是__开头，__开头都是内置的）
+                if (hasattr(v, '__call__') and  #有__call__属性的就是function么
                         (v.__module__ == module_path or
-                         hasattr(v, '__replaced'))):
-                    _actions[k] = v
+                         hasattr(v, '__replaced'))): # 这个__replace 应该是ckan自己定义的
+                    _actions[k] = v  # k应该是那个函数的名字（string）
 
                     # Whitelist all actions defined in logic/action/get.py as
                     # being side-effect free.
                     if action_module_name == 'get' and \
                        not hasattr(v, 'side_effect_free'):
-                        v.side_effect_free = True
+                        v.side_effect_free = True  # ？？
 
+    # 上面的遍历应该是在['get', 'create', 'update', 'delete', 'patch']范围中寻找，下面的
+    # 这个遍历是在plugin当中寻找
     # Then overwrite them with any specific ones in the plugins:
     resolved_action_plugins = {}
     fetched_actions = {}
@@ -406,7 +414,7 @@ def get_action(action):
             fetched_actions[name] = auth_function
     # Use the updated ones in preference to the originals.
     _actions.update(fetched_actions)
-
+    # 前面的_action k, v分别是名字和函数，后面再把每一个函数进行了wrap（是不是只是定义了，没有真正的wrap）
     # wrap the functions
     for action_name, _action in _actions.items():
         def make_wrapped(_action, action_name):
@@ -415,7 +423,7 @@ def get_action(action):
                     log.critical('%s was passed extra keywords %r'
                                  % (_action.__name__, kw))
 
-                context = _prepopulate_context(context)
+                context = _prepopulate_context(context) # 为context设置上默认值
 
                 # Auth Auditing - checks that the action function did call
                 # check_access (unless there is no accompanying auth function).
@@ -428,7 +436,7 @@ def get_action(action):
                 context['__auth_audit'].append((action_name, id(_action)))
 
                 # check_access(action_name, context, data_dict=None)
-                result = _action(context, data_dict, **kw)
+                result = _action(context, data_dict, **kw) # 这里的_action的类型是callable？
                 try:
                     audit = context['__auth_audit'][-1]
                     if audit[0] == action_name and audit[1] == id(_action):
@@ -444,16 +452,18 @@ def get_action(action):
                 except IndexError:
                     pass
                 return result
-            return wrapped
+            return wrapped  # get_action实际返回的是这个，调用函数的人得到这个之后在后面加参数(context, data_dict, **kw)
+                            # 其实是传给了它里面定义的wrapped
 
         # If we have been called multiple times for example during tests then
-        # we need to make sure that we do not rewrap the actions.
+        # we need to make sure that we do not rewrap the actions.   #多次调用get_action的时候不能重复wrap
+                                                                    #但是看不懂这个是怎么实现的
         if hasattr(_action, '__replaced'):
             _actions[action_name] = _action.__replaced
             continue
-
+        # 这里wrap才真正实现
         fn = make_wrapped(_action, action_name)
-        # we need to mirror the docstring
+        # we need to mirror the docstring  # 把docstring 复制过来
         fn.__doc__ = _action.__doc__
         # we need to retain the side effect free behaviour
         if getattr(_action, 'side_effect_free', False):

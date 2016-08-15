@@ -31,7 +31,7 @@ class TemplateNotFound(Exception):
 def template_info(template_name):
     ''' Returns the path and type for a template '''
 
-    if template_name in _template_info_cache:
+    if template_name in _template_info_cache:  # initial: {}
         t_data = _template_info_cache[template_name]
         return t_data['template_path'], t_data['template_type']
 

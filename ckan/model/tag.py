@@ -206,8 +206,11 @@ class Tag(domain_object.DomainObject):
         :rtype: list of ckan.model.package.Package objects
 
         '''
+        # import package as package_
+        # F:\myckan\ckan\model\package
+        # meta.Session.query的参数通常是一个类
         q = meta.Session.query(_package.Package)
-        q = q.join(PackageTag)
+        q = q.join(PackageTag)  # 这里的join应该是查询的join，即左连接和右连接
         q = q.filter_by(tag_id=self.id)
         q = q.filter_by(state='active')
         q = q.order_by(_package.Package.name)

@@ -43,22 +43,22 @@ def _get_locales():
     assert not config.get('lang'), \
         ('"lang" config option not supported - please use ckan.locale_default '
          'instead.')
-    locales_offered = config.get('ckan.locales_offered', '').split()
+    locales_offered = config.get('ckan.locales_offered', '').split() #split的默认分隔符是一个空格符
     filtered_out = config.get('ckan.locales_filtered_out', '').split()
     locale_default = config.get('ckan.locale_default', 'en')
     locale_order = config.get('ckan.locale_order', '').split()
 
     locales = ['en']
-    if config.get('ckan.i18n_directory'):
+    if config.get('ckan.i18n_directory'): # 获取i18n文件夹的位置
         i18n_path = os.path.join(config.get('ckan.i18n_directory'), 'i18n')
     else:
         i18n_path = os.path.dirname(ckan.i18n.__file__)
 
-    # For every file in the ckan i18n directory see if babel can understand
+    # For every file in the ckan i18n directory see if babel can understand # babel什么意思...
     # the locale. If yes, add it to the available locales
     for locale in os.listdir(i18n_path):
         try:
-            Locale.parse(locale)
+            Locale.parse(locale) # 这里的Local来自于babel， babel是python的一个国际化工具包
             locales.append(locale)
         except (ValueError, UnknownLocaleError):
             # Babel does not know how to make a locale out of this.
@@ -71,7 +71,7 @@ def _get_locales():
 
     locale_list = []
     for locale in locales:
-        # no duplicates
+        # no duplicates  # 去掉重复项
         if locale in locale_list:
             continue
         # if offered locales then check locale is offered
@@ -80,7 +80,7 @@ def _get_locales():
         # remove if filtered out
         if locale in filtered_out:
             continue
-        # ignore the default as it will be added first
+        # ignore the default as it will be added first  #？？ordered_list = [locale_default] 因为这一句吗
         if locale == locale_default:
             continue
         locale_list.append(locale)
